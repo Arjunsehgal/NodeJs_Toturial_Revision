@@ -1,11 +1,17 @@
 var express = require('express');
 var multer= require('multer');
 var path = require ('path');
+var jwt = require ('jsonwebtoken');
 var empModel = require("../modules/employee");
 var uploadModel = require("../modules/upload");
 var router = express.Router();
 
 router.use(express.static(__dirname+"./public/"));
+
+if (typeof localStorage === "undefined" || localStorage === null) {
+  const LocalStorage = require('node-localstorage').LocalStorage;
+  localStorage = new LocalStorage('./scratch');
+}
 
 var Storage = multer.diskStorage({
   destination:"./public/uploads/",
@@ -48,14 +54,34 @@ router.get('/upload', function(req, res, next) {
   });
 });
   
+function checkLogin(req,res,next){
+  var myToken = localStorage.getItem('myToken');
+  try {
+    var decoded = jwt.verify(myToken,'loginToken');
+  } catch(err) {
+    res.send("you Need Login TO Access This Page.");
+  }
+  next();
+}
 
-router.get('/', function(req, res, next) {
+router.get('/',checkLogin ,function(req, res, next) {
   var employee = empModel.find({});
   employee.exec(function(err,data){
     if(err) throw err;
     res.render('index', { title: 'Employee Records', records: data,success:''});
   });
   
+});
+
+router.get('/login', function(req, res, next) {
+  
+  var token = jwt.sign({foo: 'bar'},'loginToken');
+  localStorage.setItem('myToken', token);
+  res.send("Login SuccessFully");
+});
+router.get('/logout', function(req, res, next) {
+  localStorage.removeItem('myToken');
+  res.send("Logout SuccessFully");
 });
 
 router.post('/',function(req,res){
